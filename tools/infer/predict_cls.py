@@ -13,6 +13,9 @@
 # limitations under the License.
 import os
 import sys
+import glob
+from PIL import Image
+import argparse
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__dir__)
@@ -127,7 +130,8 @@ class TextClassifier(object):
 
 
 def main(args):
-    image_file_list = get_image_file_list(args.image_dir)
+    # image_file_list = get_image_file_list(args.image_dir)
+    image_file_list = glob.glob(f'{args.image_dir}/*/*.png')
     text_classifier = TextClassifier(args)
     valid_image_file_list = []
     img_list = []
@@ -135,12 +139,14 @@ def main(args):
         img, flag, _ = check_and_read(image_file)
         if not flag:
             img = cv2.imread(image_file)
+
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
             continue
         valid_image_file_list.append(image_file)
         img_list.append(img)
     try:
+        orig_img_list = img_list
         img_list, cls_res, predict_time = text_classifier(img_list)
     except Exception as E:
         logger.info(traceback.format_exc())
@@ -150,7 +156,17 @@ def main(args):
         logger.info(
             "Predicts of {}:{}".format(valid_image_file_list[ino], cls_res[ino])
         )
+    return image_file_list, img_list, cls_res, predict_time
 
 
 if __name__ == "__main__":
-    main(utility.parse_args())
+    args = utility.parse_args()
+    img_file_list, img_list, _, _ = main(args)
+
+    # Make a directory for saving processed images
+    os.makedirs(args.cls_output_dir, exist_ok=True)
+
+    for index, img in enumerate(img_list):        
+        sub_dir_path = os.path.join(args.cls_output_dir, img_file_list[index].split('/')[-2:-1][0])
+        os.makedirs(sub_dir_path, exist_ok=True)
+        cv2.imwrite(sub_dir_path + '/' + img_file_list[index].split('/')[-1], img)
